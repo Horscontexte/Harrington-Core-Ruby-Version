@@ -14,6 +14,10 @@ vilain_sb_combo = 0
 vilain_bb_combo = 0
 # c. Le nombre de combinaison total possible pour 52 cartes (Moins les deux cartes de hero)
 total_hands_combo = 1225;
+# d. MongoConfiguration
+require 'mongo'
+Mongo::Logger.logger.level = ::Logger::FATAL
+client = Mongo::Client.new([ '127.0.0.1:27017' ], :database => 'equity')
 # 2. Définir les variables user :
 # - Notre main
 # - La range de vilain 1
@@ -101,3 +105,4 @@ vilains_total_call = 100 - vilains_total_fold.to_f
 puts "Info - Probabilité d'obtenir un fold par SB et BB => " + vilains_total_fold.to_s
 puts "Info - Probabilité d'obtenir un call par SB ou BB => " + vilains_total_call.to_s
 # 7. Calculer l'equity de chaque rencontre (Hero vs vilain combo)
+client.collections.each { |coll| puts coll.name }
