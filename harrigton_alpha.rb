@@ -14,10 +14,16 @@ vilain_sb_combo = 0
 vilain_bb_combo = 0
 # c. Le nombre de combinaison total possible pour 52 cartes (Moins les deux cartes de hero)
 total_hands_combo = 1225;
-# d. MongoConfiguration
+# d. MongoConfiguration and database connection
 require 'mongo'
 Mongo::Logger.logger.level = ::Logger::FATAL
 client = Mongo::Client.new([ '127.0.0.1:27017' ], :database => 'equity')
+# e. Variable pour stocker le nombre de victoire face au deux joueurs
+hero_vs_sb_victory_count = 0
+hero_vs_bb_victory_count = 0
+# f. Variables pour stocker le nombre de rencontre théorique, et le nombre de rencontre reel (Rencontre impossible!)
+hero_vs_sb_requested_combo = 0
+hero_vs_sb_impossible_combo = 0
 # 2. Définir les variables user :
 # - Notre main
 # - La range de vilain 1
@@ -26,6 +32,8 @@ client = Mongo::Client.new([ '127.0.0.1:27017' ], :database => 'equity')
 # - La taille de l'ante
 # - La taille du tapis de hero, vilainSB et vilainBB
 hero_hand = "AcAd"
+hero_card_1 = "Ac"
+hero_card_2 = "Ad"
 vilain_range_sb = ['AA','KK','QQ','JJ','TT','99','88','77','ATs','AKo','AKs','AQo','AQs','AJs']
 vilain_range_bb = ['AA','KK','QQ','JJ','TT','99','88','77','66','55','AKo','AKs','AQo','AQs','AJs','AJo','ATo','ATs','A9s','A8s']
 table_size = 3
@@ -38,7 +46,8 @@ vilain_bb_tapis = 9
 if hero_hand.length == 4
 puts "Info - Hero Hand => " + hero_hand + " : OK!"
 else
-puts "Error - " + hero_hand + " : wrong format!"
+puts "Error - " + hero_hand + " => wrong format!"
+abort
 end
 #     - Détection du format des ranges des vilains (SB et BB)
 vilain_range_sb.each do |hand|
@@ -48,6 +57,7 @@ vilain_range_sb.each do |hand|
     puts "Info - SmallBlind Range => " + hand + " => 's/c/d/h (spade/clubs/diamond/heart)' : OK!"
   else
     puts "Error - " + hand + " => wrong format!"
+    abort
   end
 end
 vilain_range_bb.each do |hand|
@@ -57,6 +67,7 @@ vilain_range_bb.each do |hand|
     puts "Info - BigBlind Range => " + hand + " => 's/c/d/h (spade/clubs/diamond/heart)' : OK!"
   else
     puts "Error - " + hand + " => wrong format!"
+    abort
   end
 end
 # 4. Nous allons compter le nombre de combo contenu dans chaque range :
@@ -72,6 +83,7 @@ vilain_range_sb.each do |hand|
     vilain_sb_combo += 6
   else
     puts "Error - " + hand + " is not suited/offsuited or pair"
+    abort
   end
 end
 # Print a log with vilainSB count
@@ -85,6 +97,7 @@ vilain_range_bb.each do |hand|
     vilain_bb_combo += 6
   else
     puts "Error - " + hand + " is not suited/offsuited or pair"
+    abort
   end
 end
 # Print a log with vilainBB count
@@ -105,4 +118,135 @@ vilains_total_call = 100 - vilains_total_fold.to_f
 puts "Info - Probabilité d'obtenir un fold par SB et BB => " + vilains_total_fold.to_s
 puts "Info - Probabilité d'obtenir un call par SB ou BB => " + vilains_total_call.to_s
 # 7. Calculer l'equity de chaque rencontre (Hero vs vilain combo)
-client.collections.each { |coll| puts coll.name }
+vilain_range_sb.each do |hand|
+  # Si le dernier caractere de la string est une majuscule => C'est forcement une paire.
+  # // ch / cd / cs / hd / hs / ds //
+  if hand[-1, 1] == hand[-1, 1].capitalize
+    x = 5
+    while x >= 0
+      if x == 5
+        if hero_card_1 == hand[0,1] + "c"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "h"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_1 == hand[-1, 1] + "h"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "h"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[-1, 1] + "h"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "h"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[0,1] + "c"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "h"
+          hero_vs_sb_impossible_combo += 1
+        end
+        client[:equitys].find(:heroHand => hero_hand, :vilainHand => hand[0,1] + "c" + hand[-1, 1] + "h").each do |doc|
+            hero_vs_sb_victory_count += doc['heroEquity'].to_i
+            hero_vs_sb_requested_combo += 1
+        end
+        x -= 1
+      elsif x == 4
+        if hero_card_1 == hand[0,1] + "c"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_1 == hand[-1, 1] + "d"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[-1, 1] + "d"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[0,1] + "c"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        end
+        client[:equitys].find(:heroHand => hero_hand, :vilainHand => hand[0,1] + "c" + hand[-1, 1] + "d").each do |doc|
+            hero_vs_sb_victory_count += doc['heroEquity'].to_i
+            hero_vs_sb_requested_combo += 1
+        end
+        x -= 1
+      elsif x == 3
+        if hero_card_1 == hand[0,1] + "c"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_1 == hand[-1, 1] + "s"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[-1, 1] + "s"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[0,1] + "c"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "c" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        end
+        client[:equitys].find(:heroHand => hero_hand, :vilainHand => hand[0,1] + "c" + hand[-1, 1] + "s").each do |doc|
+            hero_vs_sb_victory_count += doc['heroEquity'].to_i
+            hero_vs_sb_requested_combo += 1
+        end
+        x -= 1
+      elsif x == 2
+        if hero_card_1 == hand[0,1] + "h"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_1 == hand[-1, 1] + "d"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[-1, 1] + "d"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[0,1] + "h"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "d"
+          hero_vs_sb_impossible_combo += 1
+        end
+        client[:equitys].find(:heroHand => hero_hand, :vilainHand => hand[0,1] + "h" + hand[-1, 1] + "d").each do |doc|
+            hero_vs_sb_victory_count += doc['heroEquity'].to_i
+            hero_vs_sb_requested_combo += 1
+        end
+        x -= 1
+      elsif x == 1
+        if hero_card_1 == hand[0,1] + "h"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_1 == hand[-1, 1] + "s"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[-1, 1] + "s"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[0,1] + "h"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "h" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        end
+        client[:equitys].find(:heroHand => hero_hand, :vilainHand => hand[0,1] + "h" + hand[-1, 1] + "s").each do |doc|
+            hero_vs_sb_victory_count += doc['heroEquity'].to_i
+            hero_vs_sb_requested_combo += 1
+        end
+        x -= 1
+      elsif x == 0
+        if hero_card_1 == hand[0,1] + "d"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "d" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_1 == hand[-1, 1] + "s"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "d" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[-1, 1] + "s"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "d" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        elsif hero_card_2 == hand[0,1] + "d"
+          puts "Error - Rencontre impossible! " + hero_hand + hand[0,1] + "d" + hand[-1, 1] + "s"
+          hero_vs_sb_impossible_combo += 1
+        end
+        client[:equitys].find(:heroHand => hero_hand, :vilainHand => hand[0,1] + "d" + hand[-1, 1] + "s").each do |doc|
+            hero_vs_sb_victory_count += doc['heroEquity'].to_i
+            hero_vs_sb_requested_combo += 1
+        end
+        x -= 1
+      end
+    end
+  elsif hand[-1, 1] == "o"
+    puts "Offsuited"
+  elsif hand[-1, 1] == "s"
+    puts "Suited"
+  end
+end
+
+puts "Hero vs sb victory " + hero_vs_sb_victory_count.to_s
+puts "impossible combo hero vs sb " + hero_vs_sb_impossible_combo.to_s
+puts "requested combo hero vs sb " + hero_vs_sb_requested_combo.to_s
